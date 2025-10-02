@@ -18,26 +18,44 @@ public class PlayerHeadUtils {
 
     @PostInit
     public static void init() {
-        STEVE_HEAD = new PlayerHeadTexture();
+        try {
+            // Use NameMC’s static Steve PNG instead of broken no-arg constructor
+            String steveSkinUrl = "https://s.namemc.com/i/e05011e55833b73e.png";
+            STEVE_HEAD = new PlayerHeadTexture(steveSkinUrl);
+            MeteorClient.LOG.info("Loaded Steve head texture from NameMC.");
+        } catch (Exception e) {
+            MeteorClient.LOG.error("Failed to initialize Steve head texture, using null fallback.", e);
+            STEVE_HEAD = null;
+        }
     }
 
     public static PlayerHeadTexture fetchHead(UUID id) {
         if (id == null) return null;
 
-        String url = getSkinUrl(id);
-        return url != null ? new PlayerHeadTexture(url) : null;
+        try {
+            String url = getSkinUrl(id);
+            return url != null ? new PlayerHeadTexture(url) : null;
+        } catch (Exception e) {
+            MeteorClient.LOG.error("Failed to fetch player head for UUID " + id, e);
+            return null;
+        }
     }
 
     public static String getSkinUrl(UUID id) {
         UuidToProfileResponse res2 = Http.get("https://sessionserver.mojang.com/session/minecraft/profile/" + id)
-            .exceptionHandler(e -> MeteorClient.LOG.error("Could not contact mojang session servers.", e))
+            .exceptionHandler(e -> MeteorClient.LOG.error("Could not contact Mojang session servers.", e))
             .sendJson(UuidToProfileResponse.class);
+
         if (res2 == null) return null;
 
         String base64Textures = res2.getPropertyValue("textures");
         if (base64Textures == null) return null;
 
-        TexturesJson textures = new Gson().fromJson(new String(Base64.getDecoder().decode(base64Textures)), TexturesJson.class);
+        TexturesJson textures = new Gson().fromJson(
+            new String(Base64.getDecoder().decode(base64Textures)),
+            TexturesJson.class
+        );
+
         if (textures.textures.SKIN == null) return null;
 
         return textures.textures.SKIN.url;
