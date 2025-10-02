@@ -39,8 +39,7 @@ jobs:
           npm run --silent get_number >> $GITHUB_OUTPUT
 
       - name: Build
-        run: ./gradlew build -Pcommit=${{ github.sha }} -Pbuild_number=${{ steps.build-number.outputs.number }}
-
+        run: ./gradlew build
       - name: Webhook Failure
         if: ${{ failure() }}
         run: |
@@ -49,11 +48,6 @@ jobs:
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
 
-      - name: Publish
-        run: ./gradlew publish -Pcommit=${{ github.sha }} -Pbuild_number=${{ steps.build-number.outputs.number }}
-        env:
-          MAVEN_METEOR_ALIAS: ${{ secrets.MAVEN_METEOR_ALIAS }}
-          MAVEN_METEOR_TOKEN: ${{ secrets.MAVEN_METEOR_TOKEN }}
 
       - name: Discord webhook
         run: |
