@@ -1,14 +1,11 @@
-/*
- * This file is part of the Meteor Client distribution (https://github.com/MeteorDevelopment/meteor-client).
- * Copyright (c) Meteor Development.
- */
-
 package meteordevelopment.meteorclient.gui.renderer.packer;
 
 import com.mojang.blaze3d.platform.TextureUtil;
 import com.mojang.blaze3d.textures.FilterMode;
 import com.mojang.blaze3d.textures.TextureFormat;
+import meteordevelopment.meteorclient.MeteorClient;
 import meteordevelopment.meteorclient.renderer.Texture;
+import net.minecraft.resource.Resource;
 import net.minecraft.util.Identifier;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.stb.STBImage;
@@ -23,6 +20,7 @@ import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import static meteordevelopment.meteorclient.MeteorClient.mc;
 
@@ -33,7 +31,13 @@ public class TexturePacker {
 
     public GuiTexture add(Identifier id) {
         try {
-            InputStream in = mc.getResourceManager().getResource(id).get().getInputStream();
+            Optional<Resource> optionalRes = mc.getResourceManager().getResource(id);
+            if (optionalRes.isEmpty()) {
+                MeteorClient.LOG.error("TexturePacker: Missing texture resource {}", id);
+                return null; // Prevent crash
+            }
+
+            InputStream in = optionalRes.get().getInputStream();
             GuiTexture texture = new GuiTexture();
 
             try (MemoryStack stack = MemoryStack.stackPush()) {
@@ -48,6 +52,11 @@ public class TexturePacker {
                     IntBuffer ignored = stack.mallocInt(1);
 
                     ByteBuffer imageBuffer = STBImage.stbi_load_from_memory(rawImageBuffer, w, h, ignored, 4);
+
+                    if (imageBuffer == null) {
+                        MeteorClient.LOG.error("TexturePacker: Failed to load image for {}", id);
+                        return null;
+                    }
 
                     int width = w.get(0);
                     int height = h.get(0);
@@ -89,7 +98,6 @@ public class TexturePacker {
     }
 
     public Texture pack() {
-        // Calculate final width and height and image positions
         int width = 0;
         int height = 0;
 
@@ -115,11 +123,9 @@ public class TexturePacker {
         width = Math.max(width, rowWidth);
         height += rowHeight;
 
-        // Create texture
         ByteBuffer buffer = BufferUtils.createByteBuffer(width * height * 4);
 
         for (Image image : images) {
-            // Copy pixels
             byte[] row = new byte[image.width * 4];
 
             for (int i = 0; i < image.height; i++) {
@@ -133,7 +139,6 @@ public class TexturePacker {
             ((Buffer) image.buffer).rewind();
             image.free();
 
-            // Calculate normalized coordinates
             image.region.x1 = (double) image.x / width;
             image.region.y1 = (double) image.y / height;
             image.region.x2 = (double) (image.x + image.width) / width;
@@ -151,11 +156,8 @@ public class TexturePacker {
     private static class Image {
         public final ByteBuffer buffer;
         public final TextureRegion region;
-
         public final int width, height;
-
         public int x, y;
-
         private final boolean stb;
 
         public Image(ByteBuffer buffer, TextureRegion region, int width, int height, boolean stb) {
