@@ -39,7 +39,7 @@ jobs:
           npm run --silent get_number >> $GITHUB_OUTPUT
 
       - name: Build
-        run: ./gradlew build -Pcommit=${{ github.sha }} -Pbuild_number=${{ steps.build-number.outputs.number }}
+        run: ./gradlew build
 
       - name: Archive Artifacts
         uses: actions/upload-artifact@v4
