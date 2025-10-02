@@ -33,8 +33,8 @@ public class TexturePacker {
         try {
             Optional<Resource> optionalRes = mc.getResourceManager().getResource(id);
             if (optionalRes.isEmpty()) {
-                MeteorClient.LOG.error("TexturePacker: Missing texture resource {}", id);
-                return null; // Prevent crash
+                MeteorClient.LOG.warn("TexturePacker: Missing texture resource {}", id);
+                return null; // skip missing textures
             }
 
             InputStream in = optionalRes.get().getInputStream();
@@ -52,7 +52,6 @@ public class TexturePacker {
                     IntBuffer ignored = stack.mallocInt(1);
 
                     ByteBuffer imageBuffer = STBImage.stbi_load_from_memory(rawImageBuffer, w, h, ignored, 4);
-
                     if (imageBuffer == null) {
                         MeteorClient.LOG.error("TexturePacker: Failed to load image for {}", id);
                         return null;
@@ -60,6 +59,12 @@ public class TexturePacker {
 
                     int width = w.get(0);
                     int height = h.get(0);
+
+                    if (width <= 0 || height <= 0) {
+                        MeteorClient.LOG.warn("TexturePacker: Image {} has invalid size {}x{}", id, width, height);
+                        STBImage.stbi_image_free(imageBuffer);
+                        return null;
+                    }
 
                     TextureRegion region = new TextureRegion(width, height);
                     texture.add(region);
@@ -104,7 +109,19 @@ public class TexturePacker {
         int rowWidth = 0;
         int rowHeight = 0;
 
+        // Filter out empty/invalid images
+        List<Image> validImages = new ArrayList<>();
         for (Image image : images) {
+            if (image != null && image.width > 0 && image.height > 0) validImages.add(image);
+            else MeteorClient.LOG.warn("TexturePacker: Skipping empty or invalid image");
+        }
+
+        if (validImages.isEmpty()) {
+            MeteorClient.LOG.error("TexturePacker: No valid images to pack");
+            return null;
+        }
+
+        for (Image image : validImages) {
             if (rowWidth + image.width > maxWidth) {
                 width = Math.max(width, rowWidth);
                 height += rowHeight;
@@ -125,7 +142,7 @@ public class TexturePacker {
 
         ByteBuffer buffer = BufferUtils.createByteBuffer(width * height * 4);
 
-        for (Image image : images) {
+        for (Image image : validImages) {
             byte[] row = new byte[image.width * 4];
 
             for (int i = 0; i < image.height; i++) {
