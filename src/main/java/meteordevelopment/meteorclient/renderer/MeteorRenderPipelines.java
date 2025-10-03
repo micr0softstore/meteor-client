@@ -226,21 +226,16 @@ public static void precompile() {
             var optionalResource = resources.getResource(identifier);
 
             if (optionalResource.isEmpty()) {
-                MeteorClient.LOG.error("Missing shader resource: {} ({})", identifier, shaderType);
-                // Return an empty shader so it doesn't crash
-                return "";
+                throw new RuntimeException("Missing shader resource: " + identifier + " (" + shaderType + ")");
             }
 
             try (var in = optionalResource.get().getInputStream()) {
                 return IOUtils.toString(in, StandardCharsets.UTF_8);
             } catch (IOException e) {
-                MeteorClient.LOG.error("Failed to load shader resource: {} ({})", identifier, shaderType, e);
-                return "";
+                throw new RuntimeException("Failed to load shader resource: " + identifier + " (" + shaderType + ")", e);
             }
         });
     }
 }
-
-
     private MeteorRenderPipelines() {}
 }
