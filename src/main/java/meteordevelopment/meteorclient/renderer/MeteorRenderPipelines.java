@@ -217,22 +217,30 @@ public abstract class MeteorRenderPipelines {
         return pipeline;
     }
 
-    public static void precompile() {
-        GpuDevice device = RenderSystem.getDevice();
-        ResourceManager resources = MinecraftClient.getInstance().getResourceManager();
+public static void precompile() {
+    GpuDevice device = RenderSystem.getDevice();
+    ResourceManager resources = MinecraftClient.getInstance().getResourceManager();
 
-        for (RenderPipeline pipeline : PIPELINES) {
-            device.precompilePipeline(pipeline, (identifier, shaderType) -> {
-                var resource = resources.getResource(identifier).get();
+    for (RenderPipeline pipeline : PIPELINES) {
+        device.precompilePipeline(pipeline, (identifier, shaderType) -> {
+            var optionalResource = resources.getResource(identifier);
 
-                try (var in = resource.getInputStream()) {
-                    return IOUtils.toString(in, StandardCharsets.UTF_8);
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
-            });
-        }
+            if (optionalResource.isEmpty()) {
+                MeteorClient.LOG.error("Missing shader resource: {} ({})", identifier, shaderType);
+                // Return an empty shader so it doesn't crash
+                return "";
+            }
+
+            try (var in = optionalResource.get().getInputStream()) {
+                return IOUtils.toString(in, StandardCharsets.UTF_8);
+            } catch (IOException e) {
+                MeteorClient.LOG.error("Failed to load shader resource: {} ({})", identifier, shaderType, e);
+                return "";
+            }
+        });
     }
+}
+
 
     private MeteorRenderPipelines() {}
 }
